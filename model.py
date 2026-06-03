@@ -10,7 +10,7 @@ data = pd.read_csv('Position_Salaries.csv')
 data = data.apply(pd.to_numeric, errors = 'coerce') #any value not a number gets turned into NaN value
 
 #debug statemnt for progress
-print(data)
+#print(data)
 
 
 #converts pd array into pytorch array, ready to be used for machine learning
@@ -18,47 +18,81 @@ x = torch.Tensor(data.values[:,1]).unsqueeze(dim=1)
 y = torch.Tensor(data.values[:,2]).unsqueeze(dim=1)
 
 #debug statement for progress
-print(x, y)
+#print(x, y)
 
 #Plot for Position level vs Salary
-plt.plot(x,y)
-plt.xlabel('Position Level')
-plt.ylabel('Salary')
-plt.title('Position Level vs Salary')
-plt.show()
+#plt.plot(x,y)
+#plt.xlabel('Position Level')
+#plt.ylabel('Salary')
+#plt.title('Position Level vs Salary')
+#plt.show()
 
-#preprocessing, first by standardizing and removing mean and then scaling
-scaler_x= StandardScaler()
-scaler_y =StandardScaler()
-
-x_scaled = torch.Tensor(scaler_x.fit_transform(x))
-y_scaled = torch.Tensor(scaler_y.fit_transform(y))
-
-#split and train using x_scaled and y_scaled, (80% training, 20% testing)
-x_train, x_test, y_train, y_test = train_test_split(x_scaled, y_scaled, test_size=0.2)
-
-#debug statement, print out length of splits
-print(len(x_train), len(x_test), len(y_train), len(y_test))
-
-#simple neural network has 2 hidden layers in total
-model = nn.Sequential(
-    nn.Linear(1, 64),   #input layer to hidden layer
-    nn.ReLU(),
-    nn.Linear(64,64),   # hidden layer to hidden layer
-    nn.ReLU(),
-    nn.Linear(64,1)     #hidden layer to output layer
+x_train, x_test, y_train, y_test = train_test_split(
+    x, y, test_size=0.2, random_state=42
 )
 
-#debug statement for model
+scaler_x = StandardScaler()
+scaler_y = StandardScaler()
+
+x_train = scaler_x.fit_transform(x_train)
+x_test = scaler_x.transform(x_test)
+
+y_train = scaler_y.fit_transform(y_train)
+y_test = scaler_y.transform(y_test)
+
+x_train = torch.tensor(x_train, dtype=torch.float32)
+x_test = torch.tensor(x_test, dtype=torch.float32)
+y_train = torch.tensor(y_train, dtype=torch.float32)
+y_test = torch.tensor(y_test, dtype=torch.float32)
+
+model = nn.Sequential(
+    nn.Linear(1, 8),
+    nn.ReLU(),
+    nn.Linear(8, 1)
+)
+
 print(model)
 
-#define loss function and optimizer
-loss_fn = nn.MSELoss()  #Mean Absolute Error
-optimizer = torch.optim.Adam(model.parameters(), lr =0.01)
+loss_fn = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-#define number of epochs
-epochs = 100
+epochs = 300
 
-#Training loop
 for epoch in range(epochs):
-    pass
+    model.train()
+
+    y_pred = model(x_train)
+    loss = loss_fn(y_pred, y_train)
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    model.eval()
+    with torch.inference_mode():
+        test_pred = model(x_test)
+        test_loss = loss_fn(test_pred, y_test)
+
+    if epoch % 10 == 0:
+        print(f"Epoch {epoch} | Loss: {loss.item()} | Test Loss: {test_loss.item()}")
+
+model.eval()
+with torch.inference_mode():
+    y_pred_scaled = model(x)
+
+    y_preds = scaler_y.inverse_transform(
+        y_pred_scaled.detach().cpu().numpy()
+    )
+
+x_plot = scaler_x.transform(x.numpy())
+x_plot = torch.tensor(x_plot, dtype=torch.float32)
+
+with torch.inference_mode():
+    plt.plot(x, y, label="Actual Data")
+    plt.scatter(x, scaler_y.inverse_transform(model(x_plot).detach().numpy()), label="Model Prediction")
+
+plt.xlabel('Position Level')
+plt.ylabel('Salary')
+plt.title('Model Predictions vs Actual Data')
+plt.legend()
+plt.show()
