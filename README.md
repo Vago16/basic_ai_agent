@@ -52,7 +52,7 @@ A simple feedforward neural network:
 
 ---
 
-## 🚀 How to Run
+## How to Run
 
 1. Install dependencies
 ```bash
